@@ -1,0 +1,109 @@
+---
+title: "Penguins Classification"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(rpart)  # for decision tree
+library(ranger)
+
+```
+
+```{r}
+library(palmerpenguins)
+
+tidypenguins <- penguins %>% 
+  select(-island) %>% 
+  drop_na()
+
+glimpse(tidypenguins)
+```
+```{r}
+ggplot(tidypenguins, aes(x = flipper_length_mm, y = body_mass_g)) +
+  geom_point(color = "salmon", size = 3, alpha = .9) +
+  geom_smooth(method = "lm")
+```
+```{r}
+lm_spec <- 
+  linear_reg() %>%       # pick model
+  set_engine("lm") %>%   # set engine
+  set_mode("regression") # set mode
+
+lm_spec
+```
+```{r}
+penguin_split <- initial_split(tidypenguins, strata = species)
+penguin_train <- training(penguin_split)
+penguin_test  <- testing(penguin_split)
+```
+```{r}
+set.seed(0)
+
+lm_spec %>% 
+  
+  # train: get fitted model
+  fit(body_mass_g ~ ., data = penguin_train) %>% 
+  
+  # test: get predictions
+  predict(new_data = penguin_test) %>% 
+  
+  # compare: get metrics
+  bind_cols(penguin_test) %>% 
+  rmse(truth = body_mass_g, estimate = .pred)
+```
+```{r}
+get_rmse <- function(model_spec, split) {
+  
+  model_spec %>% 
+    
+    # train: get fitted model
+    fit(body_mass_g ~ ., data = training(split)) %>% 
+    
+    # test: get predictions
+    predict(new_data = testing(split)) %>% 
+    
+    # compare: get metrics
+    bind_cols(testing(split)) %>% 
+    rmse(truth = body_mass_g, estimate = .pred)
+  
+}
+```
+```{r}
+set.seed(0)
+get_rmse(model_spec = lm_spec, split = penguin_split)
+```
+```{r}
+get_preds <- function(model_spec, split){
+  
+  # train: get fitted model
+  fit_model <- model_spec %>% 
+    fit(body_mass_g ~ ., data = training(split))
+  
+  # test: get predictions
+  preds <- fit_model %>% 
+    predict(new_data = testing(split)) %>% 
+    bind_cols(testing(split) %>% select(body_mass_g, species))
+
+  preds
+}
+
+set.seed(0)
+penguin_preds <- get_preds(model_spec = lm_spec, split = penguin_split)
+```
+
+```{r}
+set.seed(0)
+penguin_folds <- vfold_cv(data = penguin_train, strata = "species")
+
+penguin_folds
+```
+
+
