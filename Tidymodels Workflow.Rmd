@@ -1,0 +1,119 @@
+---
+title: "Tidymodels Workflow"
+output:
+  html_document: default
+  pdf_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Load the necessary libaries
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(tidymodels)
+
+```
+```{r}
+data("ames")
+```
+
+
+
+# Split data into training and test data set
+```{r}
+split_ames <- initial_split(ames, strata = Sale_Price, prop = 0.8)
+
+ames_train <- training(split_ames)
+ames_test <- testing(split_ames)
+
+```
+
+# Create Cross-Validation data set
+```{r}
+
+ames_vfold <- vfold_cv(ames_train) # USe the training data set from the initial split
+
+
+```
+# Create the Model MAtrix and all require pre-processing steps with recipes
+```{r}
+# Use the full training set for as the data object in the recipe function
+# The recipe function shows what pre-processing steps wiill done and the role of the variables
+rec_ames <- ames_train %>% recipe(Sale_Price ~ .) %>% 
+  step_corr(all_numeric(), -all_outcomes()) # all_numeric and other all_ function need ()
+
+rec_prep <- prep(rec_ames) # prep/bake is only needed when you don't work tune_grid
+ 
+  
+#the Prep function applies the preprocessing steps to the data object
+rec_ames
+rec_prep
+```
+
+Creare model
+```{r}
+
+lm_ames <- linear_reg() %>% set_engine("lm")
+
+```
+
+# Create a workflow object 
+```{r}
+# add the basic recipe without calling the prep() function on it - The basic reciped needs a # data object for establishing the parameters for thre pre-processing -e.g. include complete # training dataset 
+# add the model definition - No data obejct is included
+ames_work <- workflow() %>% add_recipe(rec_ames) %>%
+ add_model(lm_ames)
+```
+
+
+
+###Fitting or Tuning
+
+fit_resamples(object, ...)
+
+# S3 method for model_spec
+fit_resamples(
+  object,
+  preprocessor,
+  resamples,
+  ...,
+  metrics = NULL,
+  control = control_resamples()
+)
+
+# S3 method for workflow
+fit_resamples(
+  object,
+  resamples,
+  ...,
+  metrics = NULL,
+  control = control_resamples()
+)
+ARGUMENTS
+object	
+A parsnip model specification or a workflows::workflow(). No tuning parameters are allowed.
+
+...	
+Currently unused.
+
+preprocessor	
+A traditional model formula or a recipe created using recipes::recipe().
+
+resamples	
+A resample rset created from an rsample function such as rsample::vfold_cv().
+
+metrics	
+A yardstick::metric_set(), or NULL to compute a standard set of metrics.
+
+control	
+A control_resamples() object used to fine tune the resampling process.
+
+PERFORMANCE METRICS
+
+
